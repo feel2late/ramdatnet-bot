@@ -1,4 +1,4 @@
-import logging, messages, db, mainmenu, config, random, schedule, time
+import logging, messages, db, mainmenu, config, random
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from buttons import *
@@ -19,7 +19,7 @@ admin.register_handlers_admin(dp)
 
 # Создаем клавиатуры и подключаем к ним кнопки 
 servers_kb = ReplyKeyboardMarkup(resize_keyboard=True)
-servers_kb.add(button_frankfurt).row(button_amsterdam, button_london).add(button_cancel)
+servers_kb.add(button_amsterdam, button_london).add(button_cancel)
 get_keys_kb = ReplyKeyboardMarkup(resize_keyboard=True)
 get_keys_kb.add(button_get_key).add(button_cancel)
 
@@ -293,10 +293,11 @@ async def get_keys(message: types.Message):
     await message.answer("Скопируй ключ из следующего сообщения и вставь его в приложение Outline")
     await message.answer(db.get_key(message.from_user.id, 'rdn2'), reply_markup=servers_kb)
 
-@dp.message_handler(text="Германия 🇩🇪 | Рекомендуем!")
+
+"""@dp.message_handler(text="Германия 🇩🇪 | Рекомендуем!")
 async def get_keys(message: types.Message):
     await message.answer("Скопируй ключ из следующего сообщения и вставь его в приложение Outline")
-    await message.answer(db.get_key(message.from_user.id, 'rdn3'), reply_markup=servers_kb)    
+    await message.answer(db.get_key(message.from_user.id, 'rdn3'), reply_markup=servers_kb)"""    
 
 
 @dp.message_handler(text="Скачать приложение")

@@ -199,3 +199,13 @@ def update_flag_blocked(user_id, flag):
 def set_tariff(user_id):
     cursor.execute("UPDATE access SET tariff = 200 WHERE user_telegram_id = %s", (user_id,))
     conn.commit()
+
+def get_active_users():
+    """Возвращает telegram_id активных клиентов"""
+
+    cursor.execute("SELECT user_telegram_id FROM access WHERE payment_recieved IS NOT NULL OR shutdown_date = 'not_need_to_pay'")
+    result = cursor.fetchall()
+    users = []
+    for i in range(len(result)):
+        users.append(result[i][0])
+    return users
