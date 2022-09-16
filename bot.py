@@ -17,15 +17,14 @@ p2p = QiwiP2P(auth_key=config.QIWI_TOKEN)
 
 admin.register_handlers_admin(dp)
 
-# Создаем клавиатуры и подключаем к ним кнопки 
 servers_kb = ReplyKeyboardMarkup(resize_keyboard=True)
 servers_kb.add(button_amsterdam, button_london).add(button_cancel)
 get_keys_kb = ReplyKeyboardMarkup(resize_keyboard=True)
 get_keys_kb.add(button_get_key).add(button_cancel)
 
 
-# Присылаем фото для подтверждения оплаты
-@dp.message_handler(content_types=types.ContentTypes.PHOTO)
+#Разбит на три хэндлера, удалить после тестов
+"""@dp.message_handler(content_types=types.ContentTypes.PHOTO)
 async def send_to_admin(message: types.Message):
     db.add_days(message.from_user.id)
     next_payment_date = db.when_to_pay(message.from_user.id)
@@ -38,17 +37,54 @@ async def send_to_admin(message: types.Message):
         await bot.send_message(376131047, f'<b>НЕЗАРЕГИСТИРОВАННЫЙ</b> пользователь с id {message.from_user.id} ({message.from_user.username} / {message.from_user.first_name}) прислал фото', reply_markup=link_user_kb)
         await bot.send_photo(chat_id=376131047, photo=message.photo[-1].file_id)
     else:
-        sc.delete_limit(db.get_rdn_id_from_user(message.from_user.id)[0], db.get_rdn_id_from_user(message.from_user.id)[1], db.get_rdn_id_from_user(message.from_user.id)[2])    
+        sc.delete_limit(db.get_rdn_id_from_user(message.from_user.id)[0], db.get_rdn_id_from_user(message.from_user.id)[1])    
         db.update_flag_blocked(message.from_user.id, 'false')
         await message.answer(f"Спасибо, скриншот отправлен на проверку.\n\nДоступ к сервису уже восстановлен.\n\nДата следующей оплаты: до {next_payment_date}\n\nНапомню в день оплаты.", reply_markup=mainmenu.main_kb(message.from_user.id))
         await bot.send_animation(message.from_user.id, animation='https://i.gifer.com/2Ts.gif')
         await bot.send_message(376131047, f'Пользователь с id {message.from_user.id} ({message.from_user.username} / {message.from_user.first_name}) прислал фото', reply_markup=link_user_kb)
-        await bot.send_photo(chat_id=376131047, photo=message.photo[-1].file_id)
+        await bot.send_photo(chat_id=376131047, photo=message.photo[-1].file_id)"""
 
+@dp.message_handler(content_types=types.ContentTypes.PHOTO)
+async def photo_type_selection(message: types.Message):
+    button_confirm = InlineKeyboardButton(text='Да, разблокировать доступ', callback_data='confirm_payment')
+    button_unconfirm = InlineKeyboardButton(text='Нет, мне нужна помощь', callback_data='unconfirm_payment')
+    choice_user_kb = InlineKeyboardMarkup(row_width=1)
+    choice_user_kb.add(button_confirm).add(button_unconfirm)
+    button_link_user = InlineKeyboardButton(text="Ссылка на пользователя", url=f"tg://user?id={message.from_user.id}")
+    link_user_kb = InlineKeyboardMarkup(row_width=1)
+    link_user_kb.add(button_link_user)
+    await message.answer("Это подтверждение оплаты?", reply_markup=choice_user_kb)
+    await bot.send_message(376131047, f'Пользователь с id {message.from_user.id} ({message.from_user.username} / {message.from_user.first_name}) прислал фото', reply_markup=link_user_kb)
+    await bot.send_photo(chat_id=376131047, photo=message.photo[-1].file_id)
+
+
+@dp.callback_query_handler(text="confirm_payment")
+async def confirm_payment(callback: types.Message):
+    db.add_days(callback.from_user.id)
+    next_payment_date = db.when_to_pay(callback.from_user.id)
     
-# Присылаем документ для подтверждения оплаты
+    if not db.is_registered(callback.from_user.id):
+        await callback.answer('Я вас не узнаю. Вы зарегистрировались, прежде чем оплачивать?', reply_markup=mainmenu.main_kb(callback.from_user.id))
+    else:
+        sc.delete_limit(db.get_rdn_id_from_user(callback.from_user.id)[0], db.get_rdn_id_from_user(callback.from_user.id)[1])    
+        db.update_flag_blocked(callback.from_user.id, 'false')
+        await callback.message.delete()
+        await bot.send_message(callback.from_user.id, f"Спасибо, скриншот отправлен на проверку.\n\nДоступ к сервису уже восстановлен.\n\nДата следующей оплаты: до {next_payment_date}\n\nНапомню в день оплаты.")
+        await bot.send_message(376131047, f'Пользователь с id {callback.from_user.id} ({callback.from_user.username} / {callback.from_user.first_name}) подтвердил оплату скриншотом')
+        #await bot.send_animation(callback.from_user.id, animation='https://i.gifer.com/2Ts.gif')
+
+
+@dp.callback_query_handler(text="unconfirm_payment")
+async def unconfirm_payment(callback: types.Message):
+        await callback.message.delete()
+        await bot.send_message(callback.from_user.id, f"Ваш скриншот отправлен администратору. Он свяжется с вами в ближайшее время")
+        await bot.send_message(376131047, f'Пользователь с id {callback.from_user.id} ({callback.from_user.username} / {callback.from_user.first_name}) нуждается в помощи по скриншоту')
+
+
 @dp.message_handler(content_types=types.ContentTypes.DOCUMENT)
 async def send_to_admin(message: types.Message):
+    '''Присылаем документ для подтверждения оплаты'''
+
     db.add_days(message.from_user.id)
     next_payment_date = db.when_to_pay(message.from_user.id)
     button_link_user = InlineKeyboardButton(text="Ссылка на пользователя", url=f"tg://user?id={message.from_user.id}")
@@ -109,12 +145,12 @@ async def ban(message: types.Message):
             pay_menu.insert(button_url_qiwi).insert(button_pay_by_phone)
             await bot.send_message(id, f'Нам очень жаль, но мы вынуждены заблокировать ваши ключи из-за отсутствия оплаты 😞\n\nВы можете восстановить доступ, оплатив {db.get_tariff(id)} рублей, выбрав один из вариантов оплаты ниже.', reply_markup=pay_menu)
             amount_of_messages += 1
-            sc.set_limit(db.get_rdn_id_from_user(id)[0], db.get_rdn_id_from_user(id)[1], db.get_rdn_id_from_user(id)[2])
+            sc.set_limit(db.get_rdn_id_from_user(id)[0], db.get_rdn_id_from_user(id)[1])
             db.update_flag_blocked(id, 'true')
         except:
             count += 1
             inactive_users.append(id)
-            sc.set_limit(db.get_rdn_id_from_user(id)[0], db.get_rdn_id_from_user(id)[1], db.get_rdn_id_from_user(id)[2])
+            sc.set_limit(db.get_rdn_id_from_user(id)[0], db.get_rdn_id_from_user(id)[1])
             db.update_flag_blocked(id, 'true')
     await message.answer(f"Готово!\nОбщее количество заблокированных пользователей: {len(users)}.\n\nКоличество отправленных сообщений: {amount_of_messages}.")
     await message.answer(f"Пользователи, отключившие бота: {inactive_users}\n\nКоличество: {count}")
@@ -146,7 +182,7 @@ async def add_key(message: types.Message):
 async def get_info(message: types.Message):
     await message.reply(message)
 
-#Отправляем напоминание об обплате всем пользователям, у кого до даты оплаты меньше суток
+
 @dp.message_handler(commands=['send_a_reminder'])
 async def get_info(message: types.Message):
     users = db.get_ids_who_to_pay_soon() #Возвращает список id пользователей у кого оплата сегодня
@@ -294,12 +330,6 @@ async def get_keys(message: types.Message):
     await message.answer(db.get_key(message.from_user.id, 'rdn2'), reply_markup=servers_kb)
 
 
-"""@dp.message_handler(text="Германия 🇩🇪 | Рекомендуем!")
-async def get_keys(message: types.Message):
-    await message.answer("Скопируй ключ из следующего сообщения и вставь его в приложение Outline")
-    await message.answer(db.get_key(message.from_user.id, 'rdn3'), reply_markup=servers_kb)"""    
-
-
 @dp.message_handler(text="Скачать приложение")
 async def get_keys(message: types.Message):
     # Проверяем, зарегистрирован ли пользователь и в зависимости от этого предлагаем или не предлагаем ему получить ключ
@@ -323,6 +353,7 @@ async def get_keys(message: types.Message):
         keyboard.add(*buttons)
         await message.answer("Скачать приложение вы можете по ссылкам ниже:", reply_markup=keyboard)
 
+
 @dp.message_handler(text="Дата оплаты")
 async def when_to_pay(message: types.Message):
     if db.when_to_pay(message.from_user.id):
@@ -330,9 +361,11 @@ async def when_to_pay(message: types.Message):
     else:
         await message.answer(f"Не переживайте, вам не надо платить за VPN!\n\nЭто так здорово! 😸", reply_markup=mainmenu.main_kb(message.from_user.id))
 
+
 @dp.message_handler(text="Главное меню")
 async def cancel(message: types.Message):
     await message.answer("Вы отменили текущее действие", reply_markup=mainmenu.main_kb(message.from_user.id))    
+
 
 @dp.message_handler(text_contains='ss://') 
 async def get_all_message(message: types.Message):
@@ -345,6 +378,7 @@ async def get_all_message(message: types.Message):
     keyboard.add(*buttons)
     await message.answer("Этот ключ нужно вставить в приложение Outline.\n\nНиже появились кнопки для скачивания приложения.", reply_markup=keyboard)
 
+
 @dp.message_handler(text=["Помощь", "помощь", "Help", "help"])
 async def cancel(message: types.Message):
     button_link_user = InlineKeyboardButton(text="Ссылка на пользователя", url=f"tg://user?id={message.from_user.id}")
@@ -352,6 +386,7 @@ async def cancel(message: types.Message):
     link_user_kb.add(button_link_user)
     await message.answer("Просьба о помощи отправлена администратору. Он напишет вам со своего аккаунта в течении 5 минут.", reply_markup=mainmenu.main_kb(message.from_user.id))
     await bot.send_message(376131047, f'Пользователь с id {message.from_user.id} ({message.from_user.username} / {message.from_user.first_name} {message.from_user.last_name}) нуждается в помощи', reply_markup=link_user_kb)  
+
 
 @dp.message_handler(text=["Тариф 200", "тариф 200"])
 async def cancel(message: types.Message):
@@ -362,9 +397,11 @@ async def cancel(message: types.Message):
     await message.answer("Вам установлен тариф 200 рублей / мес.", reply_markup=mainmenu.main_kb(message.from_user.id))
     await bot.send_message(376131047, f'Пользователь с id {message.from_user.id} ({message.from_user.username} / {message.from_user.first_name} {message.from_user.last_name}) установил тариф 200 рублей', reply_markup=link_user_kb)  
 
+
 @dp.message_handler(content_types='text') 
 async def get_all_message(message: types.Message):
     await message.answer("К сожалению, я ещё не умею общаться как Siri или Алиса и не понимаю вас.\n\nЕсли у вас возникли трудности, напишите \"Помощь\" и мы поможем вам.", reply_markup=mainmenu.main_kb(message.from_user.id))
+
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)

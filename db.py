@@ -33,6 +33,7 @@ def get_key(user_telegram_id: int, server: str):
     cursor.execute(f"SELECT {server} FROM access WHERE user_telegram_id = %s", (user_telegram_id,))
     return cursor.fetchone()[0]
 
+
 def is_registered(user_id):
     """Проверяем, зарегистрирован ли пользователь"""
     
@@ -42,17 +43,20 @@ def is_registered(user_id):
     else:
         return False
 
+
 def get_first_free_id():
     """Получаем первый свободный id (без пользователя)"""
 
     cursor.execute("SELECT id FROM access where user_telegram_id IS NULL ORDER BY id")    
     return cursor.fetchone()
 
+
 def get_joining_date(user_id):
     """Получаем дату регистрации пользователя"""
 
     cursor.execute("SELECT connection_date FROM access where user_telegram_id = %s", (user_id,))
     return cursor.fetchone()[0]
+
 
 def when_to_pay(user_id):
     """Возвращает дату следующей оплаты"""
@@ -83,6 +87,7 @@ def get_registered_users():
 
     return message
 
+
 def shutdown_date():
     """Возвращает список айдишников и даты следующей оплаты"""
 
@@ -93,6 +98,7 @@ def shutdown_date():
     for i in range(len(result)):
         string += str(result[i]) + '\n'
     return string
+
 
 def get_ids_who_to_pay_soon():
     """Возвращает telegram_id клиентов, у кого до оплаты меньше суток"""
@@ -108,6 +114,7 @@ def get_ids_who_to_pay_soon():
             users.append(result[i][0])
         
     return users
+
 
 def add_days(id):
     """Добавляет 30 дней к пользованию сервисом"""
@@ -133,12 +140,14 @@ def add_days(id):
     cursor.execute('UPDATE access SET payment_recieved = %s, shutdown_date = %s WHERE user_telegram_id = %s', (day_of_payment, shutdown_date, id))
     conn.commit()
 
+
 def get_free_keys():
     """Возвращает количество свободных ключей"""
 
     cursor.execute("SELECT key_name FROM access WHERE telegram_username IS NULL")
     result = cursor.fetchall()
     return len(result)
+
 
 def was_a_payment(user_id):
     cursor.execute("SELECT payment_recieved FROM access WHERE user_telegram_id = %s", (user_id,))
@@ -148,14 +157,14 @@ def was_a_payment(user_id):
     else:
         return True
 
+
 def get_rdn_id_from_user(user_id):
     cursor.execute("SELECT rdn1_id FROM access WHERE user_telegram_id = %s", (user_id,))
     rdn1_id = cursor.fetchone()[0]
     cursor.execute("SELECT rdn2_id FROM access WHERE user_telegram_id = %s", (user_id,))
     rdn2_id = cursor.fetchone()[0]
-    cursor.execute("SELECT rdn3_id FROM access WHERE user_telegram_id = %s", (user_id,))
-    rdn3_id = cursor.fetchone()[0]
-    return rdn1_id, rdn2_id, rdn3_id
+    return rdn1_id, rdn2_id
+
 
 def ban():
     """Возвращает telegram_id клиентов, у кого закончился оплаченный период"""
@@ -170,9 +179,11 @@ def ban():
             users.append(result[i][0])       
     return users
 
+
 def add_check(user_id, bill_id):
     cursor.execute("INSERT INTO check_paid (user_id, bill_id) VALUES (%s, %s)", (user_id, bill_id))
     conn.commit()
+
 
 def get_check(bill_id):
     cursor.execute("SELECT * FROM check_paid WHERE bill_id = %s", (bill_id,))
@@ -181,6 +192,7 @@ def get_check(bill_id):
         return False
     else:
         return result[0]
+
 
 def delete_check(bill_id):
     return cursor.execute("DELETE FROM check_paid WHERE bill_id = %s", (bill_id,))
@@ -196,9 +208,11 @@ def update_flag_blocked(user_id, flag):
     cursor.execute("UPDATE access SET blocked = %s WHERE user_telegram_id = %s", (flag, user_id))
     conn.commit()
 
+
 def set_tariff(user_id):
     cursor.execute("UPDATE access SET tariff = 200 WHERE user_telegram_id = %s", (user_id,))
     conn.commit()
+
 
 def get_active_users():
     """Возвращает telegram_id активных клиентов"""
