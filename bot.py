@@ -140,7 +140,7 @@ async def ban(message: types.Message):
     for id in users:
         try:
             pay_menu = InlineKeyboardMarkup(row_width=1)
-            button_url_qiwi = InlineKeyboardButton(text='Оплатить картой', callback_data='pay_by_card')
+            button_url_qiwi = InlineKeyboardButton(text='Оплатить картой (временно недоступно, уже чиню', callback_data='pay_by_card')
             button_pay_by_phone = InlineKeyboardButton(text='Оплатить переводом', callback_data='pay_by_phone_number')
             pay_menu.insert(button_url_qiwi).insert(button_pay_by_phone)
             await bot.send_message(id, f'Нам очень жаль, но мы вынуждены заблокировать ваши ключи из-за отсутствия оплаты 😞\n\nВы можете восстановить доступ, оплатив {db.get_tariff(id)} рублей, выбрав один из вариантов оплаты ниже.', reply_markup=pay_menu)
@@ -192,9 +192,10 @@ async def get_info(message: types.Message):
     for id in users:
         try:
             pay_menu = InlineKeyboardMarkup(row_width=1)
-            button_url_qiwi = InlineKeyboardButton(text='Оплатить картой', callback_data='pay_by_card')
+            button_url_qiwi = InlineKeyboardButton(text='Оплатить картой (временно недоступно, уже чиню', callback_data='pay_by_card')
             button_pay_by_phone = InlineKeyboardButton(text='Оплатить переводом', callback_data='pay_by_phone_number')
             pay_menu.insert(button_url_qiwi).insert(button_pay_by_phone)
+            
             if db.was_a_payment(message.from_user.id):
                 await bot.send_message(id, f'Пожалуйста, не забудьте оплатить доступ <b>сегодня до 23:59 МСК</b> чтобы продолжить пользоваться VPN', reply_markup=pay_menu)
                 amount_of_messages += 1
@@ -263,7 +264,7 @@ async def pay(message: types.Message):
     if db.when_to_pay(message.from_user.id):
         if message.chat.type == 'private':
             pay_menu = InlineKeyboardMarkup(row_width=1)
-            button_url_qiwi = InlineKeyboardButton(text='Оплатить картой', callback_data='pay_by_card')
+            button_url_qiwi = InlineKeyboardButton(text='Оплатить картой (временно недоступно, уже чиню)', callback_data='pay_by_card')
             button_pay_by_phone = InlineKeyboardButton(text='Оплатить переводом', callback_data='pay_by_phone_number')
             pay_menu.insert(button_url_qiwi).insert(button_pay_by_phone)
             await message.answer(f'К оплате: {db.get_tariff(message.from_user.id)}р.\n\nВы можете оплатить двумя способами.\n\nКак вам будет удобнее?', reply_markup=pay_menu)
