@@ -1,19 +1,21 @@
-import logging, messages, db, mainmenu, config, random
+import logging, messages, db, mainmenu, config, random, asyncio, aioschedule
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from buttons import *
 from datetime import datetime, timedelta
 import server_commands as sc
-from pyqiwip2p import QiwiP2P
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import FSMContext
 from handlers import admin
+from glQiwiApi import QiwiP2PClient
+from glQiwiApi.qiwi.clients.p2p.types import Bill
 
 
 storage = MemoryStorage()
-logging.basicConfig(level=logging.INFO)
 bot = Bot(token=config.API_TOKEN, parse_mode=types.ParseMode.HTML)
 dp = Dispatcher(bot, storage=storage)
-p2p = QiwiP2P(auth_key=config.QIWI_TOKEN)
+qiwi_p2p_client = QiwiP2PClient(secret_p2p=config.QIWI_TOKEN)
+logging.basicConfig(level=logging.INFO)
 
 admin.register_handlers_admin(dp)
 
@@ -22,27 +24,6 @@ servers_kb.add(button_amsterdam, button_london).add(button_cancel)
 get_keys_kb = ReplyKeyboardMarkup(resize_keyboard=True)
 get_keys_kb.add(button_get_key).add(button_cancel)
 
-
-#Разбит на три хэндлера, удалить после тестов
-"""@dp.message_handler(content_types=types.ContentTypes.PHOTO)
-async def send_to_admin(message: types.Message):
-    db.add_days(message.from_user.id)
-    next_payment_date = db.when_to_pay(message.from_user.id)
-    button_link_user = InlineKeyboardButton(text="Ссылка на пользователя", url=f"tg://user?id={message.from_user.id}")
-    link_user_kb = InlineKeyboardMarkup(row_width=1)
-    link_user_kb.add(button_link_user)
-    
-    if not db.is_registered(message.from_user.id):
-        await message.answer('Я вас не узнаю. Вы зарегистрировались, прежде чем оплачивать?', reply_markup=mainmenu.main_kb(message.from_user.id))
-        await bot.send_message(376131047, f'<b>НЕЗАРЕГИСТИРОВАННЫЙ</b> пользователь с id {message.from_user.id} ({message.from_user.username} / {message.from_user.first_name}) прислал фото', reply_markup=link_user_kb)
-        await bot.send_photo(chat_id=376131047, photo=message.photo[-1].file_id)
-    else:
-        sc.delete_limit(db.get_rdn_id_from_user(message.from_user.id)[0], db.get_rdn_id_from_user(message.from_user.id)[1])    
-        db.update_flag_blocked(message.from_user.id, 'false')
-        await message.answer(f"Спасибо, скриншот отправлен на проверку.\n\nДоступ к сервису уже восстановлен.\n\nДата следующей оплаты: до {next_payment_date}\n\nНапомню в день оплаты.", reply_markup=mainmenu.main_kb(message.from_user.id))
-        await bot.send_animation(message.from_user.id, animation='https://i.gifer.com/2Ts.gif')
-        await bot.send_message(376131047, f'Пользователь с id {message.from_user.id} ({message.from_user.username} / {message.from_user.first_name}) прислал фото', reply_markup=link_user_kb)
-        await bot.send_photo(chat_id=376131047, photo=message.photo[-1].file_id)"""
 
 @dp.message_handler(content_types=types.ContentTypes.PHOTO)
 async def photo_type_selection(message: types.Message):
@@ -152,8 +133,7 @@ async def ban(message: types.Message):
             inactive_users.append(id)
             sc.set_limit(db.get_rdn_id_from_user(id)[0], db.get_rdn_id_from_user(id)[1])
             db.update_flag_blocked(id, 'true')
-    await message.answer(f"Готово!\nОбщее количество заблокированных пользователей: {len(users)}.\n\nКоличество отправленных сообщений: {amount_of_messages}.")
-    await message.answer(f"Пользователи, отключившие бота: {inactive_users}\n\nКоличество: {count}")
+    await message.answer(f"Неоплаченные пользователи заблокированы.\nКоличество заблокированных: {len(users)}.")
     
 
 @dp.message_handler(commands=['set_limit'])
@@ -184,10 +164,9 @@ async def get_info(message: types.Message):
 
 
 @dp.message_handler(commands=['send_a_reminder'])
-async def get_info(message: types.Message):
+async def send_a_reminder(message: types.Message):
     users = db.get_ids_who_to_pay_soon() #Возвращает список id пользователей у кого оплата сегодня
     count = 0
-    inactive_users = []
     amount_of_messages = 0
     for id in users:
         try:
@@ -203,11 +182,8 @@ async def get_info(message: types.Message):
                 await bot.send_message(id, f'Пробные три дня подходят к концу 😔\nВам понравилась скорость? Понравилось пользоваться нашим VPN?\n\nПожалуйста, не забудьте оплатить доступ <b>сегодня до 23:59 МСК</b> чтобы продолжить пользоваться VPN', reply_markup=pay_menu)
                 amount_of_messages += 1
         except:
-            await message.answer(f"Пользователь {id} заблокировал бота")
             count += 1
-            inactive_users.append(id)
-    await message.answer(f"Уведомления об оплате отправлены.\nОбщее количество пользователей в пуле: {len(users)}.\n\nКоличество отправленных сообщений: {amount_of_messages}.")
-    await message.answer(f"Пользователи, отключившие бота: {inactive_users}\n\nКоличество: {count}")
+    await message.answer(f"Уведомления об оплате отправлены.\nКоличество отправленных сообщений: {amount_of_messages}.")
 
 
 @dp.message_handler(text="Зарегистрироваться")
@@ -264,7 +240,7 @@ async def pay(message: types.Message):
     if db.when_to_pay(message.from_user.id):
         if message.chat.type == 'private':
             pay_menu = InlineKeyboardMarkup(row_width=1)
-            button_url_qiwi = InlineKeyboardButton(text='Оплатить картой (временно недоступно, уже чиню)', callback_data='pay_by_card')
+            button_url_qiwi = InlineKeyboardButton(text='Оплатить картой', callback_data='pay_by_card')
             button_pay_by_phone = InlineKeyboardButton(text='Оплатить переводом', callback_data='pay_by_phone_number')
             pay_menu.insert(button_url_qiwi).insert(button_pay_by_phone)
             await message.answer(f'К оплате: {db.get_tariff(message.from_user.id)}р.\n\nВы можете оплатить двумя способами.\n\nКак вам будет удобнее?', reply_markup=pay_menu)
@@ -274,10 +250,12 @@ async def pay(message: types.Message):
 
 @dp.callback_query_handler(text="pay_by_card")
 async def pay(callback: types.Message):
-    comment = str(callback.from_user.id) + '_' + str(random.randint(1000, 9999))
-    bill = p2p.bill(amount=db.get_tariff(callback.from_user.id), lifetime=1440, comment=comment, theme_code="Nykyta-MKpy0OCKJW")
-    db.add_check(callback.from_user.id, bill.bill_id)
-    await bot.send_message(callback.from_user.id, messages.pay_by_card, reply_markup=buy_menu(url=bill.pay_url, bill=bill.bill_id))
+    async with QiwiP2PClient(secret_p2p=config.QIWI_TOKEN, shim_server_url="http://referrerproxy-env.eba-cxcmwwm7.us-east-1.elasticbeanstalk.com/proxy/p2p/") as p2p:
+        comment = str(callback.from_user.id) + '_' + str(random.randint(1000, 9999))
+        bill = await p2p.create_p2p_bill(amount=db.get_tariff(callback.from_user.id), pay_source_filter=["card"], comment=comment, theme_code="Nykyta-MKpy0OCKJW")
+        shim_url = p2p.create_shim_url(bill)
+        db.add_check(callback.from_user.id, bill.id)
+        await bot.send_message(callback.from_user.id, messages.pay_by_card, reply_markup=buy_menu(url=shim_url, bill=bill.id))
 
 
 @dp.callback_query_handler(text='pay_by_phone_number')
@@ -290,17 +268,17 @@ async def check(callback: types.CallbackQuery):
     bill = str(callback.data[6:])
     info = db.get_check(bill)
     if info != False:
-        if str(p2p.check(bill_id=bill).status) == 'PAID':
+        if str(await qiwi_p2p_client.get_bill_status(bill)) == 'PAID':
             db.add_days(callback.from_user.id)
             next_payment_date = db.when_to_pay(callback.from_user.id)
             button_link_user = InlineKeyboardButton(text="Ссылка на пользователя", url=f"tg://user?id={callback.from_user.id}")
             link_user_kb = InlineKeyboardMarkup(row_width=1)
             link_user_kb.add(button_link_user)
-            sc.delete_limit(db.get_rdn_id_from_user(callback.from_user.id)[0], db.get_rdn_id_from_user(callback.from_user.id)[1], db.get_rdn_id_from_user(callback.from_user.id)[2]) 
+            sc.delete_limit(db.get_rdn_id_from_user(callback.from_user.id)[0], db.get_rdn_id_from_user(callback.from_user.id)[1]) 
             db.update_flag_blocked(callback.from_user.id, 'false')  
             await callback.message.edit_reply_markup() 
             await bot.send_message(callback.from_user.id, f"Спасибо, оплата принята.\n\nДоступ к сервису уже восстановлен.\n\nДата следующей оплаты: до {next_payment_date}\n\nНапомню в день оплаты.", reply_markup=mainmenu.main_kb(callback.from_user.id))
-            await bot.send_animation(callback.from_user.id, animation='https://i.gifer.com/2Ts.gif')
+            #await bot.send_animation(callback.from_user.id, animation='https://i.gifer.com/2Ts.gif')
             await bot.send_message(376131047, f'Пользователь с id {callback.from_user.id} ({callback.from_user.username} / {callback.from_user.first_name}) подтвердил оплату через QIWI', reply_markup=link_user_kb)
         else:
             await bot.send_message(callback.from_user.id, 'Мы не видим оплату от вас 🧐', reply_markup=buy_menu(False, bill=bill))
@@ -364,7 +342,7 @@ async def when_to_pay(message: types.Message):
 
 
 @dp.message_handler(text="Главное меню")
-async def cancel(message: types.Message):
+async def get_main_menu(message: types.Message):
     await message.answer("Вы отменили текущее действие", reply_markup=mainmenu.main_kb(message.from_user.id))    
 
 
@@ -404,5 +382,18 @@ async def get_all_message(message: types.Message):
     await message.answer("К сожалению, я ещё не умею общаться как Siri или Алиса и не понимаю вас.\n\nЕсли у вас возникли трудности, напишите \"Помощь\" и мы поможем вам.", reply_markup=mainmenu.main_kb(message.from_user.id))
 
 
-if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+async def reminder():
+    aioschedule.every().day.at("08:00").do(send_a_reminder)
+    aioschedule.every().day.at("00:05").do(ban)
+    while True:
+        await aioschedule.run_pending()
+        await asyncio.sleep(1)
+
+
+async def on_startup(_):
+    asyncio.create_task(reminder())
+
+
+if __name__ == '__main__':  
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
+    
