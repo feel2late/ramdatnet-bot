@@ -29,13 +29,6 @@ for i in result:
     cursor.execute("UPDATE access SET rdn2_data = %s WHERE rdn2_id = %s", (data, i))
 
 
-"""result = requests.get(f'https://89.44.194.176:30514/Cd9H4wI8_x1y965YiJ2ZMg/metrics/transfer', verify=False).json()
-result = result.get('bytesTransferredByUserId')
-for i in result:
-    data = round(result.get(i)/1073741824, 3)
-    cursor.execute("UPDATE access SET rdn3_data = %s WHERE rdn3_id = %s", (data, i))"""
-
-
 conn.commit()
 print("Готово")
 

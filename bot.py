@@ -113,7 +113,7 @@ async def add_key(message: types.Message):
 
 
 @dp.message_handler(commands=['ban'])
-async def ban(message: types.Message):
+async def ban():
     users = db.ban()
     count = 0
     inactive_users = []
@@ -133,7 +133,7 @@ async def ban(message: types.Message):
             inactive_users.append(id)
             sc.set_limit(db.get_rdn_id_from_user(id)[0], db.get_rdn_id_from_user(id)[1])
             db.update_flag_blocked(id, 'true')
-    await message.answer(f"Неоплаченные пользователи заблокированы.\nКоличество заблокированных: {len(users)}.")
+    await bot.send_message(376131047, f"Неоплаченные пользователи заблокированы.\nКоличество заблокированных: {len(users)}.")
     
 
 @dp.message_handler(commands=['set_limit'])
@@ -164,7 +164,7 @@ async def get_info(message: types.Message):
 
 
 @dp.message_handler(commands=['send_a_reminder'])
-async def send_a_reminder(message: types.Message):
+async def send_a_reminder():
     users = db.get_ids_who_to_pay_soon() #Возвращает список id пользователей у кого оплата сегодня
     count = 0
     amount_of_messages = 0
@@ -175,7 +175,7 @@ async def send_a_reminder(message: types.Message):
             button_pay_by_phone = InlineKeyboardButton(text='Оплатить переводом', callback_data='pay_by_phone_number')
             pay_menu.insert(button_url_qiwi).insert(button_pay_by_phone)
             
-            if db.was_a_payment(message.from_user.id):
+            if db.was_a_payment(id):
                 await bot.send_message(id, f'Пожалуйста, не забудьте оплатить доступ <b>сегодня до 23:59 МСК</b> чтобы продолжить пользоваться VPN', reply_markup=pay_menu)
                 amount_of_messages += 1
             else:
@@ -183,7 +183,7 @@ async def send_a_reminder(message: types.Message):
                 amount_of_messages += 1
         except:
             count += 1
-    await message.answer(f"Уведомления об оплате отправлены.\nКоличество отправленных сообщений: {amount_of_messages}.")
+    await bot.send_message(376131047, f"Уведомления об оплате отправлены.\nКоличество отправленных сообщений: {amount_of_messages}.")
 
 
 @dp.message_handler(text="Зарегистрироваться")
