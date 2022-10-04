@@ -2,8 +2,7 @@ import mainmenu, config, psycopg2, requests, urllib3
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram import Dispatcher, types
-from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from urllib import response
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.dispatcher.filters import Text
 urllib3.disable_warnings()
 
@@ -23,6 +22,8 @@ class FSMAdmin(StatesGroup):
 
 
 async def manual_control(message:types.Message):
+    """Ручная блокировка пользователей по user telegram id"""
+    
     if message.from_user.id in config.admins:
         await FSMAdmin.user_telegram_id.set()
         admin_kb = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -33,9 +34,6 @@ async def manual_control(message:types.Message):
         await message.answer('Доступ запрещён')
 
 async def cancel_handler(message: types.Message, state: FSMContext):
-    """current_state = await state.get_state()
-    if current_state is None:
-        return"""
     await state.finish()
     await message.reply('Отменено', reply_markup=mainmenu.main_kb(message.from_user.id))
 
@@ -65,7 +63,6 @@ async def select_action(message: types.Message, state: FSMContext):
         requests.delete(f'https://45.10.43.184:9615/ZQDD1CinJTLL1jP0x0xSSw/access-keys/{rdn2_id}/data-limit', verify=False)
         await message.answer(f'ID {rdn1_id}, {rdn2_id} для пользователя с user_telegram_id {data["user_telegram_id"]} разблокированы', reply_markup=mainmenu.main_kb(message.from_user.id))
     await state.finish()
-
 
 def register_handlers_admin(dp : Dispatcher):
     dp.register_message_handler(cancel_handler, commands='cancel', state='*')

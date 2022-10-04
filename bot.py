@@ -14,7 +14,6 @@ bot = Bot(token=config.API_TOKEN, parse_mode=types.ParseMode.HTML)
 dp = Dispatcher(bot, storage=storage)
 qiwi_p2p_client = QiwiP2PClient(secret_p2p=config.QIWI_TOKEN)
 logging.basicConfig(level=logging.INFO)
-
 admin.register_handlers_admin(dp)
 
 servers_kb = ReplyKeyboardMarkup(resize_keyboard=True)
