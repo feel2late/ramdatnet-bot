@@ -1,0 +1,4 @@
+.*
+config.py
+DB Scripts/
+__pycache__
