@@ -1,14 +1,12 @@
 import logging, messages, db, mainmenu, config, random, asyncio, aioschedule
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from buttons import *
 from datetime import datetime, timedelta
 import server_commands as sc
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.dispatcher import FSMContext
 from handlers import admin
 from glQiwiApi import QiwiP2PClient
-from glQiwiApi.qiwi.clients.p2p.types import Bill
 
 
 storage = MemoryStorage()
