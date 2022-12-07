@@ -1,4 +1,4 @@
-import mainmenu, config, psycopg2, requests, urllib3
+import mainmenu, config, psycopg2, requests, urllib3, db
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram import Dispatcher, types
@@ -52,21 +52,27 @@ async def select_action(message: types.Message, state: FSMContext):
     data = await state.get_data()
     cursor.execute("SELECT rdn1_id, rdn2_id, blocked FROM access WHERE user_telegram_id = %s", (data['user_telegram_id'],))
     result = cursor.fetchone()
-    rdn1_id = result[0]
-    rdn2_id = result[1]
-    if message.text == "Заблокировать":
-        requests.put(f'https://146.185.251.151:61236/07Tm1I9T_4ZU6pJmzGGCxQ/access-keys/{rdn1_id}/data-limit', json={"limit": {"bytes": 1000000}}, verify=False)
-        requests.put(f'https://45.10.43.184:9615/ZQDD1CinJTLL1jP0x0xSSw/access-keys/{rdn2_id}/data-limit', json={"limit": {"bytes": 1000000}}, verify=False)
-        await message.answer(f'ID {rdn1_id}, {rdn2_id} для пользователя с user_telegram_id {data["user_telegram_id"]} заблокированы', reply_markup=mainmenu.main_kb(message.from_user.id))
-    elif message.text == "Разблокировать":
-        requests.delete(f'https://146.185.251.151:61236/07Tm1I9T_4ZU6pJmzGGCxQ/access-keys/{rdn1_id}/data-limit', verify=False)
-        requests.delete(f'https://45.10.43.184:9615/ZQDD1CinJTLL1jP0x0xSSw/access-keys/{rdn2_id}/data-limit', verify=False)
-        await message.answer(f'ID {rdn1_id}, {rdn2_id} для пользователя с user_telegram_id {data["user_telegram_id"]} разблокированы', reply_markup=mainmenu.main_kb(message.from_user.id))
+    if result:
+        rdn1_id = result[0]
+        rdn2_id = result[1]
+        if message.text == "Заблокировать":
+            requests.put(f'https://146.185.251.151:61236/07Tm1I9T_4ZU6pJmzGGCxQ/access-keys/{rdn1_id}/data-limit', json={"limit": {"bytes": 1000000}}, verify=False)
+            requests.put(f'https://45.10.43.184:9615/ZQDD1CinJTLL1jP0x0xSSw/access-keys/{rdn2_id}/data-limit', json={"limit": {"bytes": 1000000}}, verify=False)
+            db.update_flag_blocked(data['user_telegram_id'], 'true')
+            await message.answer(f'ID {rdn1_id}, {rdn2_id} для пользователя с user_telegram_id {data["user_telegram_id"]} заблокированы', reply_markup=mainmenu.main_kb(message.from_user.id))
+        elif message.text == "Разблокировать":
+            requests.delete(f'https://146.185.251.151:61236/07Tm1I9T_4ZU6pJmzGGCxQ/access-keys/{rdn1_id}/data-limit', verify=False)
+            requests.delete(f'https://45.10.43.184:9615/ZQDD1CinJTLL1jP0x0xSSw/access-keys/{rdn2_id}/data-limit', verify=False)
+            db.update_flag_blocked(data['user_telegram_id'], 'false')
+            await message.answer(f'ID {rdn1_id}, {rdn2_id} для пользователя с user_telegram_id {data["user_telegram_id"]} разблокированы', reply_markup=mainmenu.main_kb(message.from_user.id))
+    else:
+        await message.answer(f'Пользователь с user_telegram_id {data["user_telegram_id"]} не найден в БД', reply_markup=mainmenu.main_kb(message.from_user.id))
     await state.finish()
 
 def register_handlers_admin(dp : Dispatcher):
     dp.register_message_handler(cancel_handler, commands='cancel', state='*')
     dp.register_message_handler(cancel_handler, Text(equals='Отмена', ignore_case=True), state='*')
     dp.register_message_handler(manual_control, commands='manual_control', state=None)
+    dp.register_message_handler(manual_control, Text(equals='Ручное управление', ignore_case=True), state=None)
     dp.register_message_handler(get_user_telegram_id, state=FSMAdmin.user_telegram_id)
     dp.register_message_handler(select_action, state=FSMAdmin.action)

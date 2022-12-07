@@ -13,7 +13,7 @@ button_frankfurt = KeyboardButton('Германия 🇩🇪 | Рекоменд�
 button_download_app = KeyboardButton('Скачать приложение')
 button_when_to_pay = KeyboardButton('Дата оплаты')
 button_cancel = KeyboardButton('Главное меню')
-
+button_manual_control = KeyboardButton('Ручное управление')
 
 def buy_menu(isUrl=True, url='', bill=''):
     qiwiMenu = InlineKeyboardMarkup(row_width=1)

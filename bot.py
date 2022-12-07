@@ -1,4 +1,5 @@
 import logging, messages, db, mainmenu, config, random, asyncio, aioschedule
+import traceback
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from buttons import *
@@ -74,7 +75,7 @@ async def send_to_admin(message: types.Message):
         await bot.send_message(376131047, f'<b>НЕЗАРЕГИСТИРОВАННЫЙ</b> пользователь с id {message.from_user.id} ({message.from_user.username} / {message.from_user.first_name}) прислал фото', reply_markup=link_user_kb)
         await bot.send_photo(chat_id=376131047, photo=message.photo[-1].file_id)
     else:
-        sc.delete_limit(db.get_rdn_id_from_user(message.from_user.id)[0], db.get_rdn_id_from_user(message.from_user.id)[1], db.get_rdn_id_from_user(message.from_user.id)[2]) 
+        sc.delete_limit(db.get_rdn_id_from_user(message.from_user.id)[0], db.get_rdn_id_from_user(message.from_user.id)[1]) 
         db.update_flag_blocked(message.from_user.id, 'false')   
         await message.answer(f"Спасибо, документ отправлен на проверку.\n\nДоступ к сервису восстановлен.\n\nДата следующей оплаты: до {next_payment_date}\n\nНапомню в день оплаты.", reply_markup=mainmenu.main_kb(message.from_user.id))
         #await message.answer("✅ Добавлен 1 месяц доступа к сервису.")
@@ -265,18 +266,21 @@ async def check(callback: types.CallbackQuery):
     bill = str(callback.data[6:])
     info = db.get_check(bill)
     if info != False:
-        if str(await qiwi_p2p_client.get_bill_status(bill)) == 'PAID':
-            db.add_days(callback.from_user.id)
-            next_payment_date = db.when_to_pay(callback.from_user.id)
-            button_link_user = InlineKeyboardButton(text="Ссылка на пользователя", url=f"tg://user?id={callback.from_user.id}")
-            link_user_kb = InlineKeyboardMarkup(row_width=1)
-            link_user_kb.add(button_link_user)
-            sc.delete_limit(db.get_rdn_id_from_user(callback.from_user.id)[0], db.get_rdn_id_from_user(callback.from_user.id)[1]) 
-            db.update_flag_blocked(callback.from_user.id, 'false')  
-            await callback.message.edit_reply_markup() 
-            await bot.send_message(callback.from_user.id, f"Спасибо, оплата принята.\n\nДоступ к сервису уже восстановлен.\n\nДата следующей оплаты: до {next_payment_date}\n\nНапомню в день оплаты.", reply_markup=mainmenu.main_kb(callback.from_user.id))
-            #await bot.send_animation(callback.from_user.id, animation='https://i.gifer.com/2Ts.gif')
-            await bot.send_message(376131047, f'Пользователь с id {callback.from_user.id} ({callback.from_user.username} / {callback.from_user.first_name}) подтвердил оплату через QIWI', reply_markup=link_user_kb)
+        try:
+            if str(await qiwi_p2p_client.get_bill_status(bill)) == 'PAID':
+                db.add_days(callback.from_user.id)
+                next_payment_date = db.when_to_pay(callback.from_user.id)
+                button_link_user = InlineKeyboardButton(text="Ссылка на пользователя", url=f"tg://user?id={callback.from_user.id}")
+                link_user_kb = InlineKeyboardMarkup(row_width=1)
+                link_user_kb.add(button_link_user)
+                sc.delete_limit(db.get_rdn_id_from_user(callback.from_user.id)[0], db.get_rdn_id_from_user(callback.from_user.id)[1]) 
+                db.update_flag_blocked(callback.from_user.id, 'false')  
+                await callback.message.edit_reply_markup() 
+                await bot.send_message(callback.from_user.id, f"Спасибо, оплата принята.\n\nДоступ к сервису уже восстановлен.\n\nДата следующей оплаты: до {next_payment_date}\n\nНапомню в день оплаты.", reply_markup=mainmenu.main_kb(callback.from_user.id))
+                #await bot.send_animation(callback.from_user.id, animation='https://i.gifer.com/2Ts.gif')
+                await bot.send_message(376131047, f'Пользователь с id {callback.from_user.id} ({callback.from_user.username} / {callback.from_user.first_name}) подтвердил оплату через QIWI', reply_markup=link_user_kb)
+        except:
+            await bot.send_message(376131047, f'У пользователя с id {callback.from_user.id} возникло исключение.\n\n{traceback.format_exc()}')
         else:
             await bot.send_message(callback.from_user.id, 'Мы не видим оплату от вас 🧐', reply_markup=buy_menu(False, bill=bill))
     else:
